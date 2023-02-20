@@ -1,19 +1,30 @@
-import { Duration, Stack, StackProps } from 'aws-cdk-lib';
-import * as sns from 'aws-cdk-lib/aws-sns';
-import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
-import * as sqs from 'aws-cdk-lib/aws-sqs';
-import { Construct } from 'constructs';
+import * as cdk from '@aws-cdk/core';
+import * as lambda from '@aws-cdk/aws-lambda';
+import * as apigw from '@aws-cdk/aws-apigateway';
 
-export class AwsCdkStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
+export class AwsCdkStack extends cdk.Stack {
+  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const queue = new sqs.Queue(this, 'AwsCdkQueue', {
-      visibilityTimeout: Duration.seconds(300)
+    const lambdaPath = 'src/lambda/';
+    const lambdaName = 'get-products';
+
+    const fn = new lambda.Function(this, 'sa360-'+ lambdaName + '-dev', {
+      functionName:  'sa360-'+ lambdaName + '-dev',
+      runtime: lambda.Runtime.PYTHON_3_7,
+      handler: 'get-products.get_products',
+      code: lambda.Code.fromAsset(lambdaPath)
     });
 
-    const topic = new sns.Topic(this, 'AwsCdkTopic');
+    const api = new apigw.RestApi(this, 'sa360', {
+      restApiName: 'My SA360 API',
+      description: 'This is my API Gateway from CDK',
+    });
 
-    topic.addSubscription(new subs.SqsSubscription(queue));
+    const getProducts = api.root.addResource('get-products');
+
+    const productsLambdaIntegration = new apigw.LambdaIntegration(fn);
+
+    getProducts.addMethod('GET', productsLambdaIntegration);
   }
 }
